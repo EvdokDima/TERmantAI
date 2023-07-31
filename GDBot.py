@@ -1,5 +1,6 @@
 # Main script to run the bot from
 from time import sleep
+import debug
 import os
 import pickle
 import random
@@ -194,6 +195,8 @@ def convert_to_n(screen):
     # Resize, and add a batch dimension (BCHW)
     return resize(screen).unsqueeze(0).to(device)
 
+a = False
+
 # Main training loop
 i_episode = None
 all_episodes = None
@@ -216,18 +219,20 @@ for i_episode in range(all_episodes, num_episodes):
     current_screen = convert_to_n(get_screen())
     state = current_screen - last_screen
 
-    while alive:
+    if a:
+        break
 
+    while alive:
+        debug.lag_start()
         # Exit condition for windows
         if keyboard.is_pressed('q'):
-            exit()
-
+            a = True
+            break
         #Get two consecutive frames
         last_screen = get_screen()
         current_screen = get_screen()
         # Get alive boolean
         alive = isalive(last_screen, current_screen)
-
         # Define next state (as we can't assign reward straight away
         if alive:
             next_state = convert_to_n(current_screen) - convert_to_n(last_screen)
@@ -247,7 +252,6 @@ for i_episode in range(all_episodes, num_episodes):
         else:
             bounce()
             reward = i * 0.1
-
         reward = torch.tensor([reward], device=device)
 
         # Increase reward multiplier each frame to reward network
@@ -261,6 +265,7 @@ for i_episode in range(all_episodes, num_episodes):
 
         # Perform one step of the optimization (on the target network)
         optimize_model()
+        debug.lag_end('ok')
 
     # Update the target network every 10 episodes
     if i_episode % TARGET_UPDATE == 0:
