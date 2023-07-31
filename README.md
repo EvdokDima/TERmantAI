@@ -1,5 +1,7 @@
 # AI for Geometry Dash using PyTorch 
-A deep Q network that plays Geometry Dash  
+A deep Q network that plays Geometry Dash
+
+# For WINDOWS only!!! 
 
 # Dependencies
 Python 3.6+  

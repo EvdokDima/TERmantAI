@@ -16,7 +16,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 import torchvision.transforms as T
 from Helpers import get_screen,isalive
-from DirectInputWindows import bounce, restart
+from DirectInputWindows import bounce
 
 # Check if GPU is supported
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -30,7 +30,7 @@ GAMMA = 0.999
 EPS_START = 0.9
 EPS_END = 0.05
 EPS_DECAY = 300
-TARGET_UPDATE = 10
+TARGET_UPDATE = 1
 num_episodes = 1000000000
 episode_memory = []
 
@@ -112,8 +112,8 @@ class DQN(nn.Module):
         return self.head(x.view(x.size(0), -1))
 
 # Initialize policy and target network
-policy_net = DQN(45, 40, 2).to(device)
-target_net = DQN(45, 40, 2).to(device)
+policy_net = DQN(random.randint(40, 50), random.randint(35, 45), random.randint(1, 3)).to(device)
+target_net = policy_net
 target_net.load_state_dict(policy_net.state_dict())
 target_net.eval()
 
@@ -196,6 +196,7 @@ def convert_to_n(screen):
     return resize(screen).unsqueeze(0).to(device)
 
 a = False
+old_i = 1
 
 # Main training loop
 i_episode = None
@@ -239,19 +240,21 @@ for i_episode in range(all_episodes, num_episodes):
         else:
             #End episode if cube is dead
             next_state = None
+            old_i = i
             i = 1
-            restart()
             break
 
         # Select and perform an action and
         # give reward no matter the action
         # as the length of survival is important
         action = select_action(state)
-        if(action == 0):
-            reward = i * 0.1
+        if action == 0:
+            reward = i * 0.05
         else:
             bounce()
             reward = i * 0.1
+        if i > old_i:
+            reward += i * 0.3
         reward = torch.tensor([reward], device=device)
 
         # Increase reward multiplier each frame to reward network
@@ -265,7 +268,7 @@ for i_episode in range(all_episodes, num_episodes):
 
         # Perform one step of the optimization (on the target network)
         optimize_model()
-        debug.lag_end('ok')
+        debug.lag_end(i)
 
     # Update the target network every 10 episodes
     if i_episode % TARGET_UPDATE == 0:
