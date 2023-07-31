@@ -2,7 +2,6 @@ numpy
 opencv-python
 torch
 torchvision
-pyobjc-framework-Quartz
 pynput
 pyscreenshot
 scikit-image

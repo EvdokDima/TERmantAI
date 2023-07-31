@@ -17,15 +17,15 @@ def get_screen():
 # Compares two following images and returns a borolean fo alive. If the image is the "Restart?"
 # screen, structural similarity index will be 0.99+ which means the cube is dead. Else, it's alive.
 def isalive(screen1, screen2):
-    (score, diff) = compare_ssim(screen1, screen2, full=True)
-    if(score < 0.995):
+    score, diff = compare_ssim(screen1, screen2, full=True)
+    if score < 0.995:
         return True
     else:
         return False
 
 # Records and displays the screen
 def screen_record():
-    while(True):
+    while True:
         gray_printscreen = get_screen()
         cv2.imshow('window',gray_printscreen)
         #press q to exit screen recording
