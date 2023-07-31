@@ -1,11 +1,9 @@
-# Reinforcement Learning - Playing Geometry Dash using PyTorch 
-
-A deep q network that plays Geometry Dash  
+# AI for Geometry Dash using PyTorch 
+A deep Q network that plays Geometry Dash  
 
 # Dependencies
 Python 3.6+  
-Run `pip3 install -r requirements.txt` to install remaining dependencies (or `pip install -r requirements.txt`, depending on your pip installation)
+Run `pip install -r requirements.txt` to install remaining dependencies
 
 # How to run
-
-Run the Geometry Dash game in top left corner of your screen on the smallest resolution and run GDBot.py, making sure that no window is covering the network's "view" of the game
+Run the Geometry Dash game in top left corner of your screen on the 470x410 resolution and run GDBot.py

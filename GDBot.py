@@ -15,14 +15,9 @@ import torch.optim as optim
 import torch.nn.functional as F
 import torchvision.transforms as T
 from Helpers import get_screen,isalive
+from DirectInputWindows import bounce, restart
 
-# Set restart and bounce according to OS
-if(platform.system() == "Windows"):
-    from DirectInputWindows import bounce, restart
-else:
-    from DirectInputMac import bounce, restart
-
-#Check if GPU is supported
+# Check if GPU is supported
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # 2 possible actions (bounce, not bounce)
@@ -52,7 +47,6 @@ resize = T.Compose([T.ToPILImage(),
 # Helper class to feed data into network
 # (based on https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html)
 class ReplayMemory(object):
-
     def __init__(self, capacity):
         self.capacity = capacity
         self.position = 0
@@ -69,14 +63,14 @@ class ReplayMemory(object):
             pickle.dump(self.memory, file)
             self.memory = []
 
-    def load(self, *args):
+    def load(self):
         # Load variables from file
         if os.path.getsize('memoryfile.pkl') > 0:
             with open('memoryfile.pkl', 'rb') as file:
                 self.memory = pickle.load(file)
 
-    def copy(self, *args):
-        memory.load('memory.pkl')
+    def copy(self):
+        memory.load()
         self.memory_list = self.memory
 
     def sample(self, batch_size):
@@ -122,7 +116,7 @@ target_net = DQN(45, 40, 2).to(device)
 target_net.load_state_dict(policy_net.state_dict())
 target_net.eval()
 
-#Initialize optimizer, memory (so planned training set size),
+# Initialize optimizer, memory (so planned training set size),
 # and set steps done to 0
 optimizer = optim.RMSprop(policy_net.parameters())
 memory = ReplayMemory(10000)
@@ -240,6 +234,7 @@ for i_episode in range(all_episodes, num_episodes):
         else:
             #End episode if cube is dead
             next_state = None
+            i = 1
             restart()
             break
 
@@ -257,7 +252,7 @@ for i_episode in range(all_episodes, num_episodes):
 
         # Increase reward multiplier each frame to reward network
         # for surviving longer
-        i = i + 1
+        i += 1
 
         # Add the state and result to memory
         memory.push(state, action, next_state, reward)
@@ -275,7 +270,7 @@ for i_episode in range(all_episodes, num_episodes):
     file = open('episodes.txt', 'w')
     file.write(str(i_episode))
     file.close()
-    memory.copy('memoryfile.pkl')
-    print("Episode " + str(i_episode) + " done")
+    memory.copy()
+    print(f"Episode {i_episode} done")
     # Reset the reward multiplier each episode as the cube only gets
     # rewarded if it survives long on the same run
