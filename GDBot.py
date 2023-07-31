@@ -16,7 +16,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 import torchvision.transforms as T
 from Helpers import get_screen,isalive
-from DirectInputWindows import bounce, restart
+from DirectInputWindows import bounce
 
 # Check if GPU is supported
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -113,7 +113,7 @@ class DQN(nn.Module):
 
 # Initialize policy and target network
 policy_net = DQN(45, 40, 2).to(device)
-target_net = DQN(45, 40, 2).to(device)
+target_net = policy_net
 target_net.load_state_dict(policy_net.state_dict())
 target_net.eval()
 
@@ -138,9 +138,11 @@ def select_action(state):
         with torch.no_grad():
             # policy_net(state).max(1) returns the largest column of
             # each row. The second column is the largest expected reward.
+            print('AI')
             return policy_net(state).max(1)[1].view(1, 1)
 
     else:
+        print('Not AI')
         # Randomly pick an action
         return random.randrange(n_actions)
 
@@ -195,7 +197,7 @@ def convert_to_n(screen):
     # Resize, and add a batch dimension (BCHW)
     return resize(screen).unsqueeze(0).to(device)
 
-a = False
+flag = False
 
 # Main training loop
 i_episode = None
@@ -219,14 +221,13 @@ for i_episode in range(all_episodes, num_episodes):
     current_screen = convert_to_n(get_screen())
     state = current_screen - last_screen
 
-    if a:
+    if flag:
         break
 
     while alive:
-        debug.lag_start()
         # Exit condition for windows
         if keyboard.is_pressed('q'):
-            a = True
+            flag = True
             break
         #Get two consecutive frames
         last_screen = get_screen()
@@ -240,7 +241,6 @@ for i_episode in range(all_episodes, num_episodes):
             #End episode if cube is dead
             next_state = None
             i = 1
-            restart()
             break
 
         # Select and perform an action and
@@ -265,7 +265,6 @@ for i_episode in range(all_episodes, num_episodes):
 
         # Perform one step of the optimization (on the target network)
         optimize_model()
-        debug.lag_end('ok')
 
     # Update the target network every 10 episodes
     if i_episode % TARGET_UPDATE == 0:
