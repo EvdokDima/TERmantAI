@@ -1,6 +1,5 @@
 # Main script to run the bot from
 from time import sleep
-import debug
 import os
 import pickle
 import random
@@ -32,8 +31,7 @@ EPS_END = 0.05
 EPS_DECAY = 300
 TARGET_UPDATE = 10
 num_episodes = 1000000000
-episode_memory = []
-
+alive_count = 0
 
 # Transition dtype that conists of a state (two frames), the action the model took,
 # and the resulting state and reward
@@ -52,27 +50,12 @@ class ReplayMemory(object):
         self.capacity = capacity
         self.position = 0
         self.memory = []
-        self.memory_list = []
 
     def push(self, *args):
         #Saves a transition
         if len(self.memory) < self.capacity:
             self.memory.append(None)
         self.memory[self.position] = Transition(*args)
-        # Save variables to file
-        with open('memoryfile.pkl', 'wb') as file:
-            pickle.dump(self.memory, file)
-            self.memory = []
-
-    def load(self):
-        # Load variables from file
-        if os.path.getsize('memoryfile.pkl') > 0:
-            with open('memoryfile.pkl', 'rb') as file:
-                self.memory = pickle.load(file)
-
-    def copy(self):
-        memory.load()
-        self.memory_list = self.memory
 
     def sample(self, batch_size):
         return random.sample(self.memory, batch_size)
@@ -112,11 +95,46 @@ class DQN(nn.Module):
         return self.head(x.view(x.size(0), -1))
 
 # Initialize policy and target network
+best_model_state = DQN(45, 40, 2).to(device)
+best_model_state.load_state_dict(best_model_state.state_dict())
+best_model_state.eval()
 policy_net = DQN(45, 40, 2).to(device)
-target_net = policy_net
-target_net.load_state_dict(policy_net.state_dict())
+target_net = DQN(45, 40, 2).to(device)
+if os.path.getsize('policy_memory.pt') > 0:
+    policy_net.load_state_dict(torch.load('policy_memory.pt'))
+    policy_net.eval()
+    print('Policy AI data loaded successfully')
+else:
+    print('Policy AI successfully created')
+if os.path.getsize('target_memory.pt') > 0:
+    target_net = torch.load('target_memory.pt', map_location=device)
+    print('Target AI data loaded successfully')
+else:
+    target_net.load_state_dict(target_net.state_dict())
+    print('Target AI successfully created')
 target_net.eval()
 
+def AI_save(network, path):
+    torch.save(network, path, _use_new_zipfile_serialization=False)
+
+def memory_read_save(path, symbol, variable = 0):
+    if symbol == 'w':
+        file = open(path, 'w')
+        file.write(str(variable))
+        file.close()
+    elif symbol == 'r':
+        if os.path.getsize(path) > 0:
+            file = open(path)
+            var = int(file.readline())
+            file.close()
+        else:
+            var = 0
+        return var
+
+if os.path.getsize('max_alive_count.txt') > 0:
+    max_alive_count = memory_read_save('max_alive_count.txt', 'r')
+else:
+    max_alive_count = 0
 # Initialize optimizer, memory (so planned training set size),
 # and set steps done to 0
 optimizer = optim.RMSprop(policy_net.parameters())
@@ -129,6 +147,7 @@ steps_done = 0
 # when the model has improved.
 def select_action(state):
     global steps_done
+    global alive_count
     sample = random.random()
     eps_threshold = EPS_END + (EPS_START - EPS_END) * \
         math.exp(-1. * steps_done / EPS_DECAY)
@@ -138,12 +157,10 @@ def select_action(state):
         with torch.no_grad():
             # policy_net(state).max(1) returns the largest column of
             # each row. The second column is the largest expected reward.
-            print('AI')
+            alive_count += 1
             return policy_net(state).max(1)[1].view(1, 1)
-
     else:
-        print('Not AI')
-        # Randomly pick an action
+        alive_count += 1
         return random.randrange(n_actions)
 
 # Function for model optimization
@@ -197,39 +214,73 @@ def convert_to_n(screen):
     # Resize, and add a batch dimension (BCHW)
     return resize(screen).unsqueeze(0).to(device)
 
-flag = False
-
 # Main training loop
-i_episode = None
-all_episodes = None
-if os.path.getsize('episodes.txt') > 0:
-    file = open('episodes.txt')
-    all_episodes = int(file.readline())
-    file.close()
-else:
-    all_episodes = 0
+all_episodes = memory_read_save('episodes.txt', 'r')
+print('--------------------------------------------------')
 for i_episode in range(all_episodes, num_episodes):
     # Initialize the training variables
-    memory.copy()
+    alive_count = 0
+    flag = False
     alive = True
     i = 1
-    if len(memory.memory_list) > 0:
-        reward = memory.memory_list[-1]
-    else:
-        reward = None
+    reward = None
     last_screen = convert_to_n(get_screen())
     current_screen = convert_to_n(get_screen())
     state = current_screen - last_screen
 
-    if flag:
-        break
-
     while alive:
         # Exit condition for windows
         if keyboard.is_pressed('q'):
+            print('--------------------------------------------------')
+            print('AI stop with saving')
+            print('--------------------------------------------------')
+            if os.path.getsize('policy_memory.pt') > 0 and os.path.getsize('target_memory.pt') > 0 and os.path.getsize('episodes.txt') > 0 and os.path.getsize('max_alive_count.txt'):
+                memory_read_save('episodes.txt', 'w')
+                memory_read_save('max_alive_count.txt', 'w')
+                with open('policy_memory.pt', 'r+') as file:
+                    file.truncate()
+                with open('target_memory.pt', 'r+') as file:
+                    file.truncate()
+            AI_save(best_model_state, 'policy_memory.pt')
+            print('Policy network saved successfully')
+            AI_save(target_net, 'target_memory.pt')
+            print('Target network saved successfully')
+            memory_read_save('episodes.txt', 'w', i_episode)
+            print('Episodes saved successfully')
+            memory_read_save('max_alive_count.txt', 'w', max_alive_count)
+            print('Max count saved successfully')
+            print('--------------------------------------------------')
             flag = True
             break
-        #Get two consecutive frames
+        elif keyboard.is_pressed('t'):
+            print('--------------------------------------------------')
+            print('AI stop without saving')
+            print('--------------------------------------------------')
+            flag = True
+            break
+        elif keyboard.is_pressed('p'):
+            if os.path.getsize('policy_memory.pt') > 0 and os.path.getsize('target_memory.pt') > 0 and os.path.getsize('episodes.txt') > 0 and os.path.getsize('max_alive_count.txt'):
+                print('--------------------------------------------------')
+                print('Stopping AI with deleting data')
+                print('--------------------------------------------------')
+                memory_read_save('episodes.txt', 'w')
+                print('Episodes deleted successfully')
+                memory_read_save('max_alive_count.txt', 'w')
+                print('Max count deleted successfully')
+                with open('policy_memory.pt', 'r+') as file:
+                    file.truncate()
+                print('Policy network deleted successfully')
+                with open('target_memory.pt', 'r+') as file:
+                    file.truncate()
+                print('Target network deleted successfully')
+                print('--------------------------------------------------')
+            else:
+                print('--------------------------------------------------')
+                print('AI stop without saving (files are empty)')
+                print('--------------------------------------------------')
+            flag = True
+            break
+        # Get two consecutive frames
         last_screen = get_screen()
         current_screen = get_screen()
         # Get alive boolean
@@ -238,7 +289,8 @@ for i_episode in range(all_episodes, num_episodes):
         if alive:
             next_state = convert_to_n(current_screen) - convert_to_n(last_screen)
         else:
-            #End episode if cube is dead
+            #
+            # End episode if cube is dead
             next_state = None
             i = 1
             break
@@ -253,6 +305,10 @@ for i_episode in range(all_episodes, num_episodes):
             bounce()
             reward = i * 0.1
         reward = torch.tensor([reward], device=device)
+        if alive_count > max_alive_count:
+            max_alive_count = alive_count
+            print(f'Max count updated on: {max_alive_count}')
+            best_model_state = policy_net.state_dict()
 
         # Increase reward multiplier each frame to reward network
         # for surviving longer
@@ -264,17 +320,13 @@ for i_episode in range(all_episodes, num_episodes):
         state = next_state
 
         # Perform one step of the optimization (on the target network)
-        optimize_model()
-
+        # optimize_model()
+    if flag:
+        break
     # Update the target network every 10 episodes
     if i_episode % TARGET_UPDATE == 0:
         target_net.load_state_dict(policy_net.state_dict())
-    episode_memory = []
-    episode_memory.append(i_episode)
-    file = open('episodes.txt', 'w')
-    file.write(str(i_episode))
-    file.close()
-    memory.copy()
     print(f"Episode {i_episode} done")
     # Reset the reward multiplier each episode as the cube only gets
     # rewarded if it survives long on the same run
+print('AI successfully stopped')

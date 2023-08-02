@@ -7,5 +7,5 @@ mouse = Controller()
 def bounce():
     mouse.position = (180, 350)
     mouse.press(Button.left)
-    sleep(0.3)
+    sleep(0.4)
     mouse.release(Button.left)

@@ -19,7 +19,7 @@ def get_screen():
 # screen, structural similarity index will be 0.99+ which means the cube is dead. Else, it's alive.
 def isalive(screen1, screen2):
     score, diff = compare_ssim(screen1, screen2, full=True)
-    if score < 0.99:
+    if score < 0.993:
         return True
     else:
         return False
