@@ -1,5 +1,4 @@
 # Main script to run the bot from
-import statistics
 from time import sleep
 import os
 import pickle
